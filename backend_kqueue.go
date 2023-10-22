@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"golang.org/x/sys/unix"
@@ -75,7 +76,7 @@ import (
 // When a watched directory is removed it will always send an event for the
 // directory itself, but may not send events for all files in that directory.
 // Sometimes it will send events for all times, sometimes it will send no
-// events, and often only for some files. 
+// events, and often only for some files.
 //
 // The default ReadDirectoryChangesW() buffer size is 64K, which is the largest
 // value that is guaranteed to work with SMB filesystems. If you have many
@@ -566,8 +567,30 @@ func (w *Watcher) readEvents() {
 			}
 
 			w.mu.Lock()
-			path := w.paths[watchfd]
+			path, ok := w.paths[watchfd]
 			w.mu.Unlock()
+
+			// On macOS it seems that sometimes an event with Ident=0 is
+			// delivered, and no other flags/information beyond that, even
+			// though we never saw such a file descriptor. For example in
+			// TestWatchSymlink/277 (usually at the end, but sometimes sooner):
+			//
+			// fmt.Printf("READ: %2d  %#v\n", kevent.Ident, kevent)
+			// unix.Kevent_t{Ident:0x2a, Filter:-4, Flags:0x25, Fflags:0x2, Data:0, Udata:(*uint8)(nil)}
+			// unix.Kevent_t{Ident:0x0,  Filter:-4, Flags:0x25, Fflags:0x2, Data:0, Udata:(*uint8)(nil)}
+			//
+			// The first is a normal event, the second with Ident 0. No error
+			// flag, no data, no ... nothing.
+			//
+			// I read a bit through bsd/kern_event.c from the xnu source, but I
+			// don't really see an obvious location where this is triggered –
+			// this doesn't seem intentional, but idk...
+			//
+			// Technically fd 0 is a valid descriptor, so only skip it if
+			// there's no path, and if we're on macOS.
+			if !ok && kevent.Ident == 0 && runtime.GOOS == "darwin" {
+				continue
+			}
 
 			event := w.newEvent(path.name, mask)
 

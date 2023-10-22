@@ -534,9 +534,9 @@ func TestWatchSymlink(t *testing.T) {
 
 		// Bug #277
 		{"277", func(t *testing.T, w *Watcher, tmp string) {
-			if runtime.GOOS == "netbsd" && isCI() {
-				t.Skip("fails in CI") // TODO
-			}
+			// if runtime.GOOS == "netbsd" && isCI() {
+			// 	t.Skip("fails in CI") // TODO
+			// }
 
 			// TODO: there is some strange fuckery going on if I use go test
 			// -count=2; the second test run has unix.Kqueue() in newKqueue()
@@ -547,7 +547,7 @@ func TestWatchSymlink(t *testing.T) {
 			// This is *only* for this test, and *only* if we have the symlinks
 			// below. kqueue(2) doesn't document returning fd 0.
 			//
-			// This happens on both FreeBSD and NetBSD.
+			// This happens on all the BSDs, but *not* macOS.
 			touch(t, tmp, "file1")
 			touch(t, tmp, "file2")
 			symlink(t, join(tmp, "file1"), tmp, "link1")
@@ -570,7 +570,7 @@ func TestWatchSymlink(t *testing.T) {
 			# TODO: the CREATE/REMOVE for /pear don't show; I'm not entirely
 			# sure why; sendDirectoryChangeEvents() doesn't pick it up. It does
 			# seem consistent though, both locally and in CI.
-			freebsd, netbsd:
+			freebsd, netbsd, dragonfly:
 				create   /foo     # touch foo
 				remove   /foo     # rm foo
 				create   /apple   # mkdir apple
