@@ -1,7 +1,8 @@
-module github.com/fsnotify/fsnotify
+module github.com/bit-rocket/fsnotify
 
 go 1.17
 
+// github.com/fsnotify/fsnotify v1.7.0
 require golang.org/x/sys v0.4.0
 
 retract (
